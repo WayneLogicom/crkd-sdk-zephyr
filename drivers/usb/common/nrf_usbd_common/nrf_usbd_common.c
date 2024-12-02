@@ -645,6 +645,7 @@ static void nrf_usbd_dma_finished(nrf_usbd_common_ep_t ep)
 			 */
 			NRF_USBD_COMMON_EP_TRANSFER_EVENT(evt, ep, NRF_USBD_COMMON_EP_OK);
 			m_event_handler(&evt);
+			//@@@@@WK this is where ISOCH handler is called
 		}
 	} else if (ep == NRF_USBD_COMMON_EPOUT0) {
 		nrf_usbd_common_setup_data_clear();
@@ -895,6 +896,8 @@ static void usbd_dmareq_process(void)
 
 			usbd_dma_pending_set();
 			m_ep_ready &= ~(1U << pos);
+
+
 			if (NRF_USBD_COMMON_ISO_DEBUG || (!NRF_USBD_COMMON_EP_IS_ISO(ep))) {
 				LOG_DBG("USB DMA process: Starting transfer on EP: %x, size: %u",
 					ep, transfer.size);
@@ -903,6 +906,7 @@ static void usbd_dmareq_process(void)
 			p_state->transfer_cnt += transfer.size;
 			/* Start transfer to the endpoint buffer */
 			dma_ep = ep;
+
 			usbd_ep_dma_start(ep, transfer.p_data.addr, transfer.size);
 
 			/* Transfer started - exit the loop */

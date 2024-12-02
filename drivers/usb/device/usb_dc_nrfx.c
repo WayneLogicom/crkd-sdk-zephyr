@@ -1106,6 +1106,15 @@ static void usbd_event_handler(nrf_usbd_common_evt_t const *const p_event)
 		nrf_usbd_common_setup_t drv_setup;
 
 		nrf_usbd_common_setup_get(&drv_setup);
+
+		#if defined(CONFIG_XBONE_USB_CHAPTER9_SUPPORT)		
+		if(drv_setup.bRequest == USB_SREQ_SET_ADDRESS)
+		{
+			extern void xbox_set_address(void);
+			xbox_set_address();
+		}
+		#endif
+
 		if ((drv_setup.bRequest != USB_SREQ_SET_ADDRESS)
 		    || (USB_REQTYPE_GET_TYPE(drv_setup.bmRequestType)
 			!= USB_REQTYPE_TYPE_STANDARD)) {

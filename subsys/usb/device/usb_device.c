@@ -69,7 +69,8 @@
 #include <zephyr/usb/class/usb_audio.h>
 #include <zephyr/sys/iterable_sections.h>
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(usb_device, CONFIG_USB_DEVICE_LOG_LEVEL);
+//LOG_MODULE_REGISTER(usb_device, CONFIG_USB_DEVICE_LOG_LEVEL);
+LOG_MODULE_REGISTER(usb_device, 2);
 
 #include <zephyr/usb/bos.h>
 #include <os_desc.h>
@@ -686,6 +687,24 @@ static bool usb_set_configuration(struct usb_setup_packet *setup)
 	LOG_DBG("Set Configuration %u request", setup->wValue);
 
 	if (setup->wValue == 0U) {
+#if defined(CONFIG_XBONE_USB_CHAPTER9_SUPPORT)		
+		/* reset endpoints for this configuration/altsetting */
+		while (p[DESC_bLength] != 0U)
+		{			
+			switch (p[DESC_bDescriptorType])
+			{
+				case USB_DESC_ENDPOINT:
+					found = reset_endpoint((struct usb_ep_descriptor *)p);
+					break;
+
+				default:
+					break;
+			}
+			/* skip to next descriptor */
+			p += p[DESC_bLength];
+		}
+#endif		
+		
 		usb_reset_alt_setting();
 		usb_dev.configuration = setup->wValue;
 		if (usb_dev.status_callback) {
@@ -872,7 +891,7 @@ static bool usb_handle_std_device_req(struct usb_setup_packet *setup,
 	} else {
 		switch (setup->bRequest) {
 		case USB_SREQ_SET_ADDRESS:
-			LOG_DBG("Set Address %u request", setup->wValue);
+			LOG_WRN("Set Address %u request", setup->wValue);
 			return !usb_dc_set_address(setup->wValue);
 
 		case USB_SREQ_SET_CONFIGURATION:
@@ -883,6 +902,7 @@ static bool usb_handle_std_device_req(struct usb_setup_packet *setup,
 
 			if (IS_ENABLED(CONFIG_USB_DEVICE_REMOTE_WAKEUP)) {
 				if (setup->wValue == USB_SFS_REMOTE_WAKEUP) {
+//					LOG_WRN("USB ##### Remote Wakeup FALSE");
 					usb_dev.remote_wakeup = false;
 					return true;
 				}
@@ -894,6 +914,7 @@ static bool usb_handle_std_device_req(struct usb_setup_packet *setup,
 
 			if (IS_ENABLED(CONFIG_USB_DEVICE_REMOTE_WAKEUP)) {
 				if (setup->wValue == USB_SFS_REMOTE_WAKEUP) {
+//					LOG_WRN("USB ##### Remote Wakeup TRUE");
 					usb_dev.remote_wakeup = true;
 					return true;
 				}
@@ -1143,6 +1164,10 @@ static int usb_handle_standard_request(struct usb_setup_packet *setup,
 {
 	int rc = 0;
 
+
+//	LOG_WRN("--- (%02X) Req=%d wValue=%04X wIndex=%04X", setup->bmRequestType, setup->bRequest, setup->wValue, setup->wIndex);
+
+
 	if (!usb_handle_bos(setup, len, data_buf)) {
 		return 0;
 	}
@@ -1152,9 +1177,20 @@ static int usb_handle_standard_request(struct usb_setup_packet *setup,
 	}
 
 	/* try the custom request handler first */
-	if (usb_dev.custom_req_handler &&
-	    !usb_dev.custom_req_handler(setup, len, data_buf)) {
-		return 0;
+	/**
+	 * @@@@@Wk chnaged to support STALLING, for Xbox xompatibility
+	 * ret = 0, setup packet processed
+	 * ret = -EINVAL, STALL
+	 * ret = -999, pass setup packet to normal processing
+	 */
+	if (usb_dev.custom_req_handler)
+	{
+	    int custom_rc = usb_dev.custom_req_handler(setup, len, data_buf);
+		
+		if((custom_rc == 0) || (custom_rc == -EINVAL))
+		{
+			return custom_rc;
+		}
 	}
 
 	switch (setup->RequestType.recipient) {
@@ -1351,6 +1387,7 @@ int usb_disable(void)
 
 	if (usb_dev.enabled != true) {
 		/*Already disabled*/
+		LOG_INF("USB ##### Disable already");
 		return 0;
 	}
 
@@ -1377,6 +1414,8 @@ int usb_disable(void)
 
 	/* Disable VBUS if needed */
 	usb_vbus_set(false);
+
+ 	LOG_INF("USB ##### Disable END");
 
 	usb_dev.enabled = false;
 
@@ -1437,6 +1476,16 @@ int usb_wakeup_request(void)
 			return usb_dc_wakeup_request();
 		}
 		return -EACCES;
+	} else {
+		return -ENOTSUP;
+	}
+}
+
+int usb_forced_wakeup_request(void)
+{
+	if (IS_ENABLED(CONFIG_USB_DEVICE_REMOTE_WAKEUP))
+	{
+			return usb_dc_wakeup_request();
 	} else {
 		return -ENOTSUP;
 	}
@@ -1506,7 +1555,9 @@ static int custom_handler(struct usb_setup_packet *pSetup,
 		if (iface->custom_handler == NULL) {
 			continue;
 		}
-
+#if defined(CONFIG_XBONE_USB_CHAPTER9_SUPPORT)
+		return iface->custom_handler(pSetup, len, data);
+#else
 		if (if_descr->bInterfaceNumber == (pSetup->wIndex & 0xFF)) {
 			return iface->custom_handler(pSetup, len, data);
 		} else {
@@ -1521,6 +1572,7 @@ static int custom_handler(struct usb_setup_packet *pSetup,
 				(void)iface->custom_handler(pSetup, len, data);
 			}
 		}
+#endif		
 	}
 
 	return -ENOTSUP;
@@ -1559,7 +1611,7 @@ static int composite_setup_ep_cb(void)
 	STRUCT_SECTION_FOREACH(usb_cfg_data, cfg_data) {
 		ep_data = cfg_data->endpoint;
 		for (uint8_t n = 0; n < cfg_data->num_endpoints; n++) {
-			LOG_DBG("set cb, ep: 0x%x", ep_data[n].ep_addr);
+			LOG_DBG("#### set cb, ep: 0x%x", ep_data[n].ep_addr);
 			if (usb_dc_ep_set_callback(ep_data[n].ep_addr,
 						   ep_data[n].ep_cb)) {
 				return -1;

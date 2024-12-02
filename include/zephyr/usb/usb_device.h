@@ -438,6 +438,7 @@ bool usb_transfer_is_busy(uint8_t ep);
  *         i.e. when the bus is already active.
  */
 int usb_wakeup_request(void);
+int usb_forced_wakeup_request(void);
 
 /**
  * @brief Get status of the USB remote wakeup feature
