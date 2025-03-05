@@ -24,7 +24,21 @@
 
 		sram0_shared: memory@20070000 {
 			/* SRAM allocated to shared memory */
-			reg = <0x20070000 0x10000>;
+			reg = <0x20070000 0xF000>;
 		};
+		
+		sram0_shared_dbg: memory@2007F000 {
+			/* SRAM allocated to shared memory DBG exchange*/
+			reg = <0x2007F000 0x800>;
+		};
+		
+		sram0_shared_transfer: memory@2007F800 {
+			/* SRAM allocated to shared memory TRANSFER exchange*/
+			reg = <0x2007F800 0x0800>;
+		};
+	};
+	aliases {
+		shareddbg = &sram0_shared_dbg;
+		sharedtransfer = &sram0_shared_transfer;
 	};
 };
