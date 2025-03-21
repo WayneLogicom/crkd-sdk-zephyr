@@ -565,6 +565,7 @@ static bool set_endpoint(const struct usb_ep_descriptor *ep_desc)
 	ep_cfg.ep_mps = sys_le16_to_cpu(ep_desc->wMaxPacketSize);
 	ep_cfg.ep_type = ep_desc->bmAttributes & USB_EP_TRANSFER_TYPE_MASK;
 
+	//@@@@@WK
 	LOG_DBG("Set endpoint 0x%x type %u MPS %u",
 		ep_cfg.ep_addr, ep_cfg.ep_type, ep_cfg.ep_mps);
 
@@ -611,7 +612,7 @@ static int disable_endpoint(uint8_t ep_addr)
 
 	ret = usb_dc_ep_disable(ep_addr);
 	if (ret == -EALREADY) {
-		LOG_WRN("Endpoint 0x%02x already disabled", ep_addr);
+		LOG_INF("Endpoint 0x%02x already disabled", ep_addr);
 	} else if (ret) {
 		LOG_ERR("Failed to disable endpoint 0x%02x", ep_addr);
 		return ret;
@@ -641,6 +642,7 @@ static bool reset_endpoint(const struct usb_ep_descriptor *ep_desc)
 	ep_cfg.ep_addr = ep_desc->bEndpointAddress;
 	ep_cfg.ep_type = ep_desc->bmAttributes & USB_EP_TRANSFER_TYPE_MASK;
 
+	//@@@@@WK
 	LOG_DBG("Reset endpoint 0x%02x type %u",
 		ep_cfg.ep_addr, ep_cfg.ep_type);
 
@@ -654,7 +656,7 @@ static bool usb_eps_reconfigure(struct usb_ep_descriptor *ep_desc,
 				uint8_t alt_setting)
 {
 	bool ret;
-
+	//@@@@@WK
 	if (cur_alt_setting != alt_setting) {
 		LOG_DBG("Disable endpoint 0x%02x", ep_desc->bEndpointAddress);
 		ret = reset_endpoint(ep_desc);
@@ -780,6 +782,7 @@ static bool usb_set_interface(struct usb_setup_packet *setup)
 	uint8_t cur_iface = 0xFF;
 	bool ret = false;
 
+	//@@@@@WK
 	LOG_DBG("Set Interface %u alternate %u", setup->wIndex, setup->wValue);
 
 	while (p[DESC_bLength] != 0U) {
